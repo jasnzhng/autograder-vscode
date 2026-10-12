@@ -12,9 +12,16 @@
 
 ## Signing in
 
-autograder.io signs you in with Google. Google's sign-in pages can't be used inside VS Code: they refuse to load in embedded frames, and webviews have no access to your browser's cookies. The website itself, though, authenticates every API call with a [Django REST Framework token](https://www.django-rest-framework.org/api-guide/authentication/#tokenauthentication). It sends the header `Authorization: Token <token>`, and it shows you that token at **`/web/__apitoken__`**.
+autograder.io signs you in with Google. Google's sign-in pages can't be used inside VS Code: they refuse to load in embedded frames, and webviews have no access to your browser's cookies. The website itself, though, authenticates every API call with a [Django REST Framework token](https://www.django-rest-framework.org/api-guide/authentication/#tokenauthentication). It sends the header `Authorization: Token <token>`. The page **`/web/__apitoken__`** doesn't display that token: it downloads it as a small file named **`agtoken`**, whose only content is the token (see `api_token.vue` in [ag-website-vue](https://github.com/eecs-autograder/ag-website-vue)).
 
-The extension asks for that token once and stores it in VS Code's [`SecretStorage`](https://code.visualstudio.com/api/references/vscode-api#SecretStorage), which is backed by the OS keychain. If `~/.agtoken` exists (the convention used by autograder's own CLI tools), the extension offers to reuse it.
+**Autograder: Sign In** handles that file for you ([`session.ts`](../src/session.ts), [`tokenFile.ts`](../src/tokenFile.ts)):
+
+1. **Reuse a token that's already on disk.** It checks `~/.agtoken` (where autograder.io's CLI expects the token), a `.agtoken` in the workspace, and any `agtoken` already in `~/Downloads`. It asks before using one.
+2. **Otherwise, open the token page and watch `~/Downloads`.** It looks for a new file named `agtoken`, or `agtoken (1)`, `agtoken-2`, `agtoken.txt` (the names browsers give repeat downloads), created after sign-in started. It checks for up to 5 minutes, and you can cancel.
+3. **Fall back** to choosing the file by hand, or pasting its contents.
+4. **Validate and store.** The token is checked against `GET /api/users/current/` and stored in VS Code's [`SecretStorage`](https://code.visualstudio.com/api/references/vscode-api#SecretStorage), which is backed by the OS keychain. The downloaded file is a credential in plain text, so the extension offers to delete it, or move it to `~/.agtoken` (permissions `600`) for use with the CLI.
+
+On macOS, VS Code may ask once for permission to read your Downloads folder.
 
 > autograder.io keeps exactly **one** token per user, and your browser session uses it too. That's why **Sign Out** only forgets the token locally. Revoking it on the website would also log you out of the site.
 

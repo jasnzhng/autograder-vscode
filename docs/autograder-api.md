@@ -10,7 +10,7 @@ autograder.io is open source ([eecs-autograder/autograder-server](https://github
 Authorization: Token <40-hex-char token>
 ```
 
-Get your token at `https://autograder.io/web/__apitoken__`. Each user has **one** token, and the website's own session uses the same one. `DELETE /api/users/current/revoke_api_token/` revokes it everywhere.
+Visiting `https://autograder.io/web/__apitoken__` while signed in downloads the token as a file named `agtoken`. The file contains just the token. Each user has **one** token, and the website's own session uses the same one. `DELETE /api/users/current/revoke_api_token/` revokes it everywhere.
 
 ## Read endpoints used
 

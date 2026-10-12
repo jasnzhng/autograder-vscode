@@ -105,9 +105,10 @@ code --install-extension autograder-io-vscode-*.vsix
 ## Getting started
 
 1. **Sign in.** Run **Autograder: Sign In** from the Command Palette (`⇧⌘P` / `Ctrl+Shift+P`).
-   - It opens `https://autograder.io/web/__apitoken__`.
-   - Copy the token shown there and paste it into VS Code.
-   - The token is stored in VS Code's SecretStorage, i.e. your OS keychain.
+   - It opens `https://autograder.io/web/__apitoken__` in your browser. After you sign in, that page **downloads a file named `agtoken`**.
+   - VS Code watches your Downloads folder and picks the file up automatically. If you saved it somewhere else, choose **Choose token file…** instead.
+   - The token is stored in VS Code's SecretStorage, i.e. your OS keychain. The extension then offers to delete the downloaded file, or to move it to `~/.agtoken`, where autograder.io's command-line tools look for it.
+   - Already have `~/.agtoken`? The extension finds it and asks before using it.
    - [Why a token?](docs/how-it-works.md#signing-in)
 2. **Open your project folder.**
    - The extension looks for an `autograder.io/web/project/<id>` link in your scripts and READMEs.

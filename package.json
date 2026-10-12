@@ -8,7 +8,7 @@
     "theme": "dark"
   },
   "preview": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "jasnzhng",
   "license": "MIT",
   "author": "Jason Zhang",
@@ -43,7 +43,7 @@
     "commands": [
       {
         "command": "autograder.signIn",
-        "title": "Sign In (paste API token)",
+        "title": "Sign In",
         "category": "Autograder"
       },
       {

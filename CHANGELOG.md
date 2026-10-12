@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.1
+
+- **Sign-in uses the `agtoken` download.** autograder.io's token page downloads a file instead of displaying the token. The extension now watches your Downloads folder for it and imports it automatically. It also reuses `~/.agtoken` when present, falls back to choosing the file or pasting it, and offers to delete the downloaded copy or move it to `~/.agtoken` afterwards.
+
 ## 0.1.0
 
 First release.
