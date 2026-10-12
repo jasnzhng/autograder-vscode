@@ -1,0 +1,240 @@
+{
+  "name": "autograder-io-vscode",
+  "displayName": "Autograder.io for VS Code",
+  "description": "Submit to autograder.io, browse results with clickable line numbers, and tie each submission to a git snapshot.",
+  "icon": "media/icon.png",
+  "galleryBanner": {
+    "color": "#1f2a3d",
+    "theme": "dark"
+  },
+  "preview": true,
+  "version": "0.1.0",
+  "publisher": "jasnzhng",
+  "license": "MIT",
+  "author": "Jason Zhang",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jasnzhng/autograder-vscode.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jasnzhng/autograder-vscode/issues"
+  },
+  "homepage": "https://github.com/jasnzhng/autograder-vscode#readme",
+  "keywords": [
+    "autograder",
+    "autograder.io",
+    "umich",
+    "eecs",
+    "submission"
+  ],
+  "engines": {
+    "vscode": "^1.95.0"
+  },
+  "categories": [
+    "Education",
+    "Testing"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "workspaceContains:**/makesubmit",
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "autograder.signIn",
+        "title": "Sign In (paste API token)",
+        "category": "Autograder"
+      },
+      {
+        "command": "autograder.signOut",
+        "title": "Sign Out",
+        "category": "Autograder"
+      },
+      {
+        "command": "autograder.openPanel",
+        "title": "Show Results",
+        "category": "Autograder",
+        "icon": "$(beaker)"
+      },
+      {
+        "command": "autograder.openInEditor",
+        "title": "Open Results in Editor Area",
+        "category": "Autograder",
+        "icon": "$(window)"
+      },
+      {
+        "command": "autograder.refresh",
+        "title": "Refresh",
+        "category": "Autograder",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "autograder.submit",
+        "title": "Submit Project",
+        "category": "Autograder",
+        "icon": "$(cloud-upload)"
+      },
+      {
+        "command": "autograder.prepare",
+        "title": "Build Submission & Open in Browser",
+        "category": "Autograder",
+        "icon": "$(link-external)"
+      },
+      {
+        "command": "autograder.configureSubmission",
+        "title": "Configure Submission Files\u2026",
+        "category": "Autograder"
+      },
+      {
+        "command": "autograder.selectProject",
+        "title": "Select Project for This Workspace",
+        "category": "Autograder"
+      },
+      {
+        "command": "autograder.openInBrowser",
+        "title": "Open Project on autograder.io",
+        "category": "Autograder"
+      },
+      {
+        "command": "autograder.clearProblems",
+        "title": "Clear Autograder Problems",
+        "category": "Autograder"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "autograder.prepare",
+          "when": "autograder.bound && config.autograder.submitMethod != 'upload'",
+          "group": "navigation@99"
+        },
+        {
+          "command": "autograder.submit",
+          "when": "autograder.bound && config.autograder.submitMethod == 'upload'",
+          "group": "navigation@99"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "autograder.prepare",
+          "when": "view == autograder.results && config.autograder.submitMethod != 'upload'",
+          "group": "navigation@1"
+        },
+        {
+          "command": "autograder.submit",
+          "when": "view == autograder.results && config.autograder.submitMethod == 'upload'",
+          "group": "navigation@1"
+        },
+        {
+          "command": "autograder.refresh",
+          "when": "view == autograder.results",
+          "group": "navigation@2"
+        },
+        {
+          "command": "autograder.openInEditor",
+          "when": "view == autograder.results",
+          "group": "navigation@3"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Autograder.io",
+      "properties": {
+        "autograder.projectId": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "default": null,
+          "scope": "resource",
+          "description": "autograder.io project ID for this workspace (the number in autograder.io/web/project/<id>). Auto-detected from scripts such as `makesubmit` when unset."
+        },
+        "autograder.submitMethod": {
+          "type": "string",
+          "enum": [
+            "browser",
+            "upload"
+          ],
+          "default": "browser",
+          "scope": "resource",
+          "enumDescriptions": [
+            "Build the submission, open autograder.io, and reveal the file \u2014 you upload it on the website.",
+            "Build and upload directly from VS Code."
+          ],
+          "markdownDescription": "What the main **Submit** button does. `browser` never uploads from VS Code."
+        },
+        "autograder.buildCommand": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null,
+          "scope": "resource",
+          "markdownDescription": "Shell command run in the workspace root before each submission, e.g. the tar command from the project spec. Set up interactively on first use (`Autograder: Configure Submission Files\u2026`). Empty string = no build step."
+        },
+        "autograder.submitFiles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "scope": "resource",
+          "markdownDescription": "Workspace-relative paths or globs to upload. When empty, files are matched against the project's expected file patterns (e.g. `submit.tar.gz`)."
+        },
+        "autograder.snapshotCommits": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "At submit time, record a git snapshot of the working tree (including uncommitted changes) under `refs/autograder/<submission>`. Doesn't change your branch, index, or stash."
+        },
+        "autograder.dryRun": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Run the whole submit flow (build, file matching, confirmation) but **don't upload**. Handy for checking what would be sent. When unset, defaults to on in an Extension Development Host and off otherwise."
+        },
+        "autograder.baseUrl": {
+          "type": "string",
+          "default": "https://autograder.io",
+          "description": "Autograder server URL."
+        }
+      }
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "autograder",
+          "title": "Autograder",
+          "icon": "media/activity-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "autograder": [
+        {
+          "type": "webview",
+          "id": "autograder.results",
+          "name": "Submissions"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "build": "node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test test/*.test.ts",
+    "package": "npm run build -- --production && vsce package --no-dependencies",
+    "demo": "node demo/setup.mjs /tmp/ag-demo && node demo/mock-server.mjs /tmp/ag-demo",
+    "publish": "npm run build -- --production && vsce publish --no-dependencies"
+  },
+  "dependencies": {
+    "@jridgewell/trace-mapping": "^0.3.31"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/vscode": "~1.95.0",
+    "@vscode/vsce": "^3.0.0",
+    "esbuild": "^0.28.2",
+    "typescript": "^5.9.3"
+  }
+}
