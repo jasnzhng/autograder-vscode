@@ -4,6 +4,7 @@
 
 - **Your token only goes back to the server that issued it.** Before, a project's `.vscode/settings.json` could set `autograder.baseUrl` and have VS Code send your stored token there as soon as the folder opened. Now the token is stored with its server, and when the setting points anywhere else you're simply signed out. Signing in to a server other than autograder.io asks first, and the URL must be `https://` (plain `http://` only on localhost). Tokens saved by 0.1.x are treated as autograder.io's.
 - **Student data only.** The course picker no longer lists courses you're on staff for. Viewing failures in Problems now also checks that the submission is in your own group's list instead of fetching it by id, so every code path reads only your own submissions, even with a staff token.
+- **Pasting a multi-line `tar` command from the spec works.** VS Code's input box is single-line and dropped the line breaks, so `\`-continued commands reached the shell as `tar \ --exclude …` and failed. Choosing "Paste the command" now fills the box from your clipboard with the lines already joined, and a command pasted into the box by hand is repaired too.
 - New extension icon.
 
 ## 0.1.1

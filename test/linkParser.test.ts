@@ -129,6 +129,16 @@ test("generated tar command", () => {
   assert.equal(buildArchiveCommand("p1.tar", ["my dir"], "linux"), "tar -cf p1.tar --exclude='*__pycache__*' --exclude='.DS_Store' 'my dir'");
 });
 
+test("multi-line spec commands survive VS Code's single-line input box", () => {
+  const spec = "tar \\\n  --disable-copyfile \\\n  --exclude '*__pycache__*' \\\n  -czvf submit.tar.gz \\\n  bin \\\n  chat485 \\\n  sql \\\n  tests/cypress/e2e/test_student.cy.js";
+  const want = "tar --disable-copyfile --exclude '*__pycache__*' -czvf submit.tar.gz bin chat485 sql tests/cypress/e2e/test_student.cy.js";
+  assert.equal(normalizePastedCommand(spec), want);                        // read from the clipboard
+  assert.equal(normalizePastedCommand(spec.replace(/\n/g, " ")), want);    // newlines turned into spaces
+  assert.equal(normalizePastedCommand(spec.replace(/\n/g, "")), want);     // newlines dropped, indentation kept
+  assert.equal(normalizePastedCommand(want), want);                        // re-normalizing the prefilled value is a no-op
+  assert.equal(normalizePastedCommand("tar -czvf submit.tar.gz bin \\"), "tar -czvf submit.tar.gz bin");
+});
+
 test("pasted spec commands are tidied", () => {
   assert.equal(normalizePastedCommand("$ tar \\\n  --exclude '*__pycache__*' \\\n  -czvf submit.tar.gz \\\n  bin server"),
     "tar --exclude '*__pycache__*' -czvf submit.tar.gz bin server");

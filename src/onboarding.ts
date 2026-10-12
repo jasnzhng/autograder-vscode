@@ -97,10 +97,17 @@ async function configureArchive(folder: vscode.WorkspaceFolder, project: Project
   let command: string | undefined;
   switch (how.id) {
     case "paste": {
+      // The input box is single-line, so pasting a multi-line spec command into it loses the line
+      // breaks. Read the clipboard directly (newlines intact) and offer the tidied command instead.
+      const clip = await vscode.env.clipboard.readText().then((t) => t.trim(), () => "");
+      const fromClipboard = clip.length < 4000 && clip.includes(archive) ? normalizePastedCommand(clip) : "";
       const pasted = await vscode.window.showInputBox({
         title: `Paste the command that creates ${archive}`, ignoreFocusOut: true,
+        value: fromClipboard,
         placeHolder: `e.g. tar -czvf ${archive} bin src sql`,
-        prompt: "Runs in the workspace root before each submission. Multiple lines are joined with &&.",
+        prompt: fromClipboard
+          ? "Filled in from your clipboard, with multiple lines joined. Check it, then press Enter. Runs in the workspace root before each submission."
+          : "Runs in the workspace root before each submission. Multiple lines are joined with &&.",
       });
       if (!pasted) return false;
       command = normalizePastedCommand(pasted);

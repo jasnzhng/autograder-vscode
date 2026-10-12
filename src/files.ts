@@ -110,5 +110,9 @@ export function inferArchiveRoots(entries: string[]): string[] {
 
 /** Tidy a command pasted from a spec: drop "$ " prompts and join backslash-continued lines. */
 export function normalizePastedCommand(cmd: string): string {
-  return cmd.replace(/\\\s*\r?\n\s*/g, " ").split(/\r?\n/).map((l) => l.trim().replace(/^\$\s+/, "")).filter(Boolean).join(" && ").replace(/\s+/g, " ").trim();
+  return cmd.replace(/\\\s*\r?\n\s*/g, " ").split(/\r?\n/).map((l) => l.trim().replace(/^\$\s+/, "")).filter(Boolean).join(" && ")
+    // VS Code input boxes are single-line and drop pasted newlines, leaving "tar \  --exclude …": a
+    // backslash followed by spaces is a flattened continuation, not an escaped space.
+    .replace(/\\[ \t]+/g, " ").replace(/\s*\\$/, "")
+    .replace(/\s+/g, " ").trim();
 }

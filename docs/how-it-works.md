@@ -68,7 +68,7 @@ If the submission has no map, a local `*.map` is used instead, and the tooltip w
 **First-run setup** starts from the project's `expected_student_files`:
 
 - **Every pattern is an archive** (`*.tar.gz`, `.tgz`, `.tar`, `.zip`, …): the extension asks for a build command. You can:
-  - **paste** the spec's command (`$` prompts are removed, backslash continuations joined, multiple lines joined with `&&`),
+  - **paste** the spec's command (`$` prompts are removed, backslash continuations joined, multiple lines joined with `&&`). VS Code's input box is single-line and drops pasted line breaks, so the box is pre-filled from the clipboard, which still has them,
   - **pick** the archive's contents from `git ls-files --cached --others --exclude-standard` (so `.gitignore` is respected), or
   - **run your own script**.
 
