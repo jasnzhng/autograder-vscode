@@ -31,7 +31,7 @@ This extension brings autograder.io into VS Code, so you can easily compare subm
 | **Git time travel** | Each submission is tied to the exact code that produced it. Diff any submission against your current code, revert changes, or check it out as a branch. |
 
 > [!NOTE]
-> This is a student project not affiliated with the University of Michigan or the autograder.io team.
+> This is a student project not affiliated with the University of Michigan or the autograder.io team. It was built with the help of Claude, an AI assistant. See [How this was built](#how-this-was-built).
 
 ## Features
 
@@ -184,6 +184,14 @@ Yes. It recognizes gcc/clang (`file.cpp:12:5:`), valgrind (`(file.cpp:42)`), pyt
 - [How it works](docs/how-it-works.md): signing in, link resolution and source maps, snapshots, matching uploads made on the website.
 - [autograder.io API notes](docs/autograder-api.md): the endpoints the extension uses, verified against the server source.
 - [Development](docs/development.md): building, testing, and the offline demo kit used for the screenshots above.
+
+## How this was built
+
+This extension was built with **Claude Code**, but all code has been reviewed and tested by myself.
+
+The repository was squashed into a single commit before it was published, since the original working history contained material from a course project I was working on at the time, used as test data. Under U-M's honor code, course project code can't be shared publicly. The published code is the same as before the squash, minus that course material. It uses only generic examples and a fictional demo project.
+
+If something looks off, please [open an issue](https://github.com/jasnzhng/autograder-vscode/issues).
 
 ## License
 
