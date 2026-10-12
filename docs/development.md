@@ -45,15 +45,3 @@ AUTOGRADER_TOKEN=demo code --extensionDevelopmentPath="$PWD" /tmp/ag-demo
 
   It accepts any token and refuses every non-GET request.
 - **`AUTOGRADER_TOKEN`**: when it's set and there's no stored token for the configured server, the extension uses it. Handy for demos and automation. Unlike a stored token, it's sent to whatever `autograder.baseUrl` says, so never put a real token in it.
-
-## Releasing
-
-1. Bump `version` in `package.json` and add an entry to `CHANGELOG.md`.
-2. `npm run package` builds a `.vsix`. Attach it to the GitHub release for anyone who wants to install from a file.
-3. **Visual Studio Marketplace.** The first time:
-   1. Create a publisher at <https://marketplace.visualstudio.com/manage>. Its ID must match `publisher` in `package.json`.
-   2. Create an Azure DevOps personal access token with the **Marketplace → Manage** scope.
-   3. Run `npx vsce login <publisher>` and paste the token.
-
-   After that, every release is `npm run publish`.
-4. **Open VSX** (for Cursor, VSCodium and other non-Microsoft builds). Publish the same `.vsix` with `npx ovsx publish <file>.vsix -p <token>`, using a token from <https://open-vsx.org>.
