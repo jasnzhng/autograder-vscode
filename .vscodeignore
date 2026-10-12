@@ -10,3 +10,5 @@ esbuild.mjs
 docs/**
 demo/**
 CHANGELOG.md
+.agtoken
+agtoken*

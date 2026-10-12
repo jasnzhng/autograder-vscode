@@ -1,3 +1,7 @@
 node_modules/
 dist/
 *.vsix
+
+# autograder.io API tokens: never commit or package these
+.agtoken
+agtoken*
