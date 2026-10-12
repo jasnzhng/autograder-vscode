@@ -1,6 +1,6 @@
 {
-  "name": "autograder-io-vscode",
-  "displayName": "Autograder.io for VS Code",
+  "name": "autograder-vscode",
+  "displayName": "Autograder.io in VSCode",
   "description": "Submit to autograder.io, browse results with clickable line numbers, and tie each submission to a git snapshot.",
   "icon": "media/icon.png",
   "galleryBanner": {

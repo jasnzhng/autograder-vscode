@@ -49,7 +49,7 @@ AUTOGRADER_TOKEN=demo code --extensionDevelopmentPath="$PWD" /tmp/ag-demo
 ## Releasing
 
 1. Bump `version` in `package.json` and add an entry to `CHANGELOG.md`.
-2. `npm run package` builds a `.vsix`. Attach it to a GitHub release as `autograder-io-vscode.vsix` (no version number), so the README's `releases/latest/download/…` link keeps working.
+2. `npm run package` builds a `.vsix`. Attach it to the GitHub release for anyone who wants to install from a file.
 3. **Visual Studio Marketplace.** The first time:
    1. Create a publisher at <https://marketplace.visualstudio.com/manage>. Its ID must match `publisher` in `package.json`.
    2. Create an Azure DevOps personal access token with the **Marketplace → Manage** scope.

@@ -1,11 +1,13 @@
 <div align="center">
 
-# Autograder.io for VS Code
+# Autograder.io in VSCode
 
 **Submit, read results, and jump straight to the failing line, without leaving your editor.**
 
 Built for University of Michigan CS students.<br>
 Works with any project on [autograder.io](https://autograder.io).
+
+[![Install from VS Code Marketplace](https://img.shields.io/badge/Install%20from-VS%20Code%20Marketplace-007ACC?style=for-the-badge&logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIyLjUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTEyIDN2MTIiLz48cGF0aCBkPSJtNiAxMCA2IDYgNi02Ii8+PHBhdGggZD0iTTQgMjBoMTYiLz48L3N2Zz4=&labelColor=1f2a3d)](https://marketplace.visualstudio.com/items?itemName=jasnzhng.autograder-vscode)
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 ![VS Code](https://img.shields.io/badge/VS%20Code-%E2%89%A51.95-007ACC?logo=visualstudiocode&logoColor=white)
@@ -78,15 +80,15 @@ From any submission you can **Compare with current** (a multi-file diff), **Chec
 
 ## Install
 
-**[⬇ Download autograder-io-vscode.vsix](https://github.com/jasnzhng/autograder-vscode/releases/latest/download/autograder-io-vscode.vsix)** (latest release), then install it with either:
+**[Install from the Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=jasnzhng.autograder-vscode)**, or search for "Autograder.io" in VS Code's Extensions view, or run:
 
-- **VS Code:** open the Extensions view, click **⋯ → Install from VSIX…**, and pick the downloaded file, or
-- **Terminal:**
-  ```bash
-  code --install-extension ~/Downloads/autograder-io-vscode.vsix
-  ```
+```bash
+code --install-extension jasnzhng.autograder-vscode
+```
 
-All versions are on the [Releases page](https://github.com/jasnzhng/autograder-vscode/releases).
+To install from a file instead, download the `.vsix` from the [Releases page](https://github.com/jasnzhng/autograder-vscode/releases) and use **⋯ → Install from VSIX…** in the Extensions view.
+
+> **Installed a `.vsix` before the extension was on the Marketplace?** Those builds use the old ID `jasnzhng.autograder-io-vscode` and won't update. Uninstall it, then install from the Marketplace. Your `autograder.*` settings carry over; you'll need to sign in again.
 
 <details>
 <summary>Build from source instead</summary>
@@ -97,8 +99,8 @@ Requires Node 20+.
 git clone https://github.com/jasnzhng/autograder-vscode.git
 cd autograder-vscode
 npm install
-npm run package          # creates autograder-io-vscode-<version>.vsix
-code --install-extension autograder-io-vscode-*.vsix
+npm run package          # creates autograder-vscode-<version>.vsix
+code --install-extension autograder-vscode-*.vsix
 ```
 </details>
 
