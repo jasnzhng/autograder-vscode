@@ -5,6 +5,7 @@ import { chooseUploads, formatBytes, matchExpected } from "./files";
 import * as git from "./git";
 import { IGNORE_GLOB, runBuild } from "./onboarding";
 import { recordPending } from "./pending";
+import { baseUrl } from "./session";
 
 export interface SubmitContext {
   folder: vscode.WorkspaceFolder;
@@ -109,7 +110,7 @@ async function ensureGroup(client: AutograderClient, user: User, project: Projec
   }
   const open = await vscode.window.showWarningMessage(
     `Register your group for ${project.name} on autograder.io first.`, "Open autograder.io");
-  if (open) void vscode.env.openExternal(vscode.Uri.parse(`https://autograder.io/web/project/${project.pk}`));
+  if (open) void vscode.env.openExternal(vscode.Uri.parse(`${baseUrl()}/web/project/${project.pk}`));
   return undefined;
 }
 
@@ -236,14 +237,10 @@ export async function runPrepare(ctx: PrepareContext): Promise<{ preparedAt: num
     }
   }
 
-  await vscode.env.openExternal(vscode.Uri.parse(`${baseUrlOf()}/web/project/${projectId}`));
+  await vscode.env.openExternal(vscode.Uri.parse(`${baseUrl()}/web/project/${projectId}`));
   if (picked.length === 1) await vscode.commands.executeCommand("revealFileInOS", picked[0].uri);
   void vscode.window.showInformationMessage(
     `Built ${picked.map((p) => `${p.rel} (${formatBytes(p.size)})`).join(", ")}. ` +
     `Upload it on the autograder.io page that just opened — results will show up in the Autograder panel.`);
   return { preparedAt };
-}
-
-function baseUrlOf(): string {
-  return vscode.workspace.getConfiguration("autograder").get<string>("baseUrl") || "https://autograder.io";
 }

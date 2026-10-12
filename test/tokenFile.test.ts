@@ -3,7 +3,9 @@ import assert from "node:assert/strict";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { findDownloadedToken, isDownloadedTokenName, parseToken, readTokenFile } from "../src/tokenFile.ts";
+import {
+  DEFAULT_SERVER, findDownloadedToken, isDownloadedTokenName, parseStoredToken, parseToken, readTokenFile, serverOrigin,
+} from "../src/tokenFile.ts";
 
 const TOKEN = "0123456789abcdef0123456789abcdef01234567";   // fake, 40 hex chars like a DRF token
 
@@ -41,4 +43,23 @@ test("reads ~/.agtoken-style files", async () => {
   fs.writeFileSync(path.join(dir, ".agtoken"), TOKEN + "\n");
   assert.equal((await readTokenFile(path.join(dir, ".agtoken")))?.token, TOKEN);
   assert.equal(await readTokenFile(path.join(dir, "nope")), undefined);
+});
+
+test("only https servers (or http on this machine) may receive the token", () => {
+  assert.equal(serverOrigin(undefined), DEFAULT_SERVER);
+  assert.equal(serverOrigin(""), DEFAULT_SERVER);
+  assert.equal(serverOrigin("https://autograder.io/"), "https://autograder.io");
+  assert.equal(serverOrigin("https://autograder.io/web/project/1"), "https://autograder.io");
+  for (const local of ["http://127.0.0.1:4785", "http://localhost:8000/", "http://[::1]:4785"]) assert.ok(serverOrigin(local), local);
+  for (const bad of ["http://autograder.io", "http://evil.example", "http://127.0.0.1.evil.example", "ftp://autograder.io",
+    "javascript:alert(1)", "https://user:pw@autograder.io", "not a url"]) assert.equal(serverOrigin(bad), undefined, bad);
+});
+
+test("stored tokens remember their server; 0.1.x bare tokens belong to autograder.io", () => {
+  assert.deepEqual(parseStoredToken(JSON.stringify({ token: TOKEN, origin: "http://127.0.0.1:4785" })),
+    { token: TOKEN, origin: "http://127.0.0.1:4785" });
+  assert.deepEqual(parseStoredToken(TOKEN), { token: TOKEN, origin: DEFAULT_SERVER });
+  assert.deepEqual(parseStoredToken("1234567890123456789012345"), { token: "1234567890123456789012345", origin: DEFAULT_SERVER });
+  assert.equal(parseStoredToken(undefined), undefined);
+  assert.equal(parseStoredToken('{"token": 5}'), undefined);
 });

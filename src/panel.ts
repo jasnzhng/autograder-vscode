@@ -282,8 +282,14 @@ export class AutograderPanel {
   async showProblems(pk: number) {
     this.conn ??= await this.deps.connect(true);
     if (!this.conn) return;
+    // Only ever submissions of your own group (as listed by groups_is_member_of): never fetch one by
+    // id, which a staff token would allow for any student's.
     let sub = this.submissions.find((s) => s.pk === pk);
-    sub ??= await this.conn.client.submission(pk);
+    if (!sub) {
+      await this.refresh(pk);   // a just-made submission may not be listed yet
+      sub = this.submissions.find((s) => s.pk === pk);
+    }
+    if (!sub || !this.conn) return;
     let res = this.results.get(pk);
     res ??= await this.conn.client.results(sub);
     this.results.set(pk, res);

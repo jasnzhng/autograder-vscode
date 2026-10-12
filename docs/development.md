@@ -44,7 +44,7 @@ AUTOGRADER_TOKEN=demo code --extensionDevelopmentPath="$PWD" /tmp/ag-demo
   - a pytest failure with a Python traceback into `server/routes.py`.
 
   It accepts any token and refuses every non-GET request.
-- **`AUTOGRADER_TOKEN`**: when it's set and no token is stored, the extension uses it. Handy for demos and automation.
+- **`AUTOGRADER_TOKEN`**: when it's set and there's no stored token for the configured server, the extension uses it. Handy for demos and automation. Unlike a stored token, it's sent to whatever `autograder.baseUrl` says, so never put a real token in it.
 
 ## Releasing
 

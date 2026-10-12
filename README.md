@@ -141,13 +141,14 @@ code --install-extension autograder-io-vscode-*.vsix
 | `autograder.submitFiles` | `[]` | Paths or globs to upload. When empty, files are matched against the project's expected patterns. |
 | `autograder.snapshotCommits` | `true` | Record git snapshots at build time. |
 | `autograder.dryRun` | `false`¹ | Do everything except upload. |
-| `autograder.baseUrl` | `https://autograder.io` | |
+| `autograder.baseUrl` | `https://autograder.io` | Must be `https://` (plain `http://` only on localhost). |
 
 ¹ When unset, defaults to **on** in an Extension Development Host (F5), so trying a dev build can never use up a submission.
 
 ## Privacy & safety
 
-- **Your token stays on your machine.** It's kept in the OS keychain and sent only to autograder.io.
+- **Your token stays on your machine.** It's kept in the OS keychain and sent only to the server that issued it (autograder.io). A project whose `.vscode/settings.json` points `autograder.baseUrl` elsewhere can't redirect it: you're simply signed out there, and signing in warns you first.
+- **For students only.** The course picker lists only courses you're enrolled in, and the extension only reads your own group's submissions. It never lists courses you're on staff for, or fetches anyone else's submissions.
 - **Signing out only forgets the token locally.** autograder.io keeps one token per user, shared with your browser session. Revoking it on the website would also log you out there.
 - **Reading is read-only.** Viewing results, output and submitted files only ever uses `GET` requests.
 - **Uploading takes an explicit choice.** It happens only through **Submit directly**, after a confirmation dialog. The default flow never uploads.

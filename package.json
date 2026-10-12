@@ -8,7 +8,7 @@
     "theme": "dark"
   },
   "preview": true,
-  "version": "0.1.1",
+  "version": "0.1.2",
   "publisher": "jasnzhng",
   "license": "MIT",
   "author": "Jason Zhang",
@@ -195,7 +195,9 @@
         "autograder.baseUrl": {
           "type": "string",
           "default": "https://autograder.io",
-          "description": "Autograder server URL."
+          "pattern": "^(https://|http://(localhost|127\\.0\\.0\\.1|\\[::1\\])(:\\d+)?(/|$))",
+          "patternErrorMessage": "Must be an https:// URL (plain http is only allowed for localhost).",
+          "markdownDescription": "Autograder server URL. Must be `https://` (plain `http://` only on localhost). Your token is only sent to the server that issued it: point this somewhere else and you're signed out there until you sign in again."
         }
       }
     },

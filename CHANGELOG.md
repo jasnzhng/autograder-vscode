@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.2
+
+- **Your token only goes back to the server that issued it.** Before, a project's `.vscode/settings.json` could set `autograder.baseUrl` and have VS Code send your stored token there as soon as the folder opened. Now the token is stored with its server, and when the setting points anywhere else you're simply signed out. Signing in to a server other than autograder.io asks first, and the URL must be `https://` (plain `http://` only on localhost). Tokens saved by 0.1.x are treated as autograder.io's.
+- **Student data only.** The course picker no longer lists courses you're on staff for. Viewing failures in Problems now also checks that the submission is in your own group's list instead of fetching it by id, so every code path reads only your own submissions, even with a staff token.
+- New extension icon.
+
 ## 0.1.1
 
 - **Sign-in uses the `agtoken` download.** autograder.io's token page downloads a file instead of displaying the token. The extension now watches your Downloads folder for it and imports it automatically. It also reuses `~/.agtoken` when present, falls back to choosing the file or pasting it, and offers to delete the downloaded copy or move it to `~/.agtoken` afterwards.

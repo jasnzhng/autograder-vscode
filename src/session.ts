@@ -3,14 +3,32 @@ import * as fs from "fs/promises";
 import * as os from "os";
 import * as path from "path";
 import { AutograderClient, ApiError, User } from "./api";
-import { findDownloadedToken, parseToken, readTokenFile, TokenFile } from "./tokenFile";
+import {
+  DEFAULT_SERVER, findDownloadedToken, parseStoredToken, parseToken, readTokenFile, serverOrigin, StoredToken, TokenFile,
+} from "./tokenFile";
 
 const SECRET_KEY = "autograder.apiToken";
 const DOWNLOADS = path.join(os.homedir(), "Downloads");
 const tilde = (p: string) => p.startsWith(os.homedir()) ? "~" + p.slice(os.homedir().length) : p;
 
+/**
+ * Before sending the user to a server other than autograder.io (its pages could be a fake sign-in),
+ * make sure they meant it: autograder.baseUrl can come from a project's .vscode/settings.json.
+ */
+export async function confirmServer(origin: string, detail: string): Promise<boolean> {
+  if (origin === DEFAULT_SERVER) return true;
+  const go = await vscode.window.showWarningMessage(
+    `This workspace points Autograder at ${origin}, not autograder.io.`,
+    { modal: true, detail: `${detail} Only continue if you set autograder.baseUrl yourself.` }, "Continue");
+  return go === "Continue";
+}
+
+/** The configured server's origin. Throws unless it's https (or http on localhost). */
 export function baseUrl(): string {
-  return vscode.workspace.getConfiguration("autograder").get<string>("baseUrl") || "https://autograder.io";
+  const raw = vscode.workspace.getConfiguration("autograder").get<string>("baseUrl");
+  const origin = serverOrigin(raw);
+  if (!origin) throw new Error(`autograder.baseUrl must be an https:// URL (it's set to "${raw}").`);
+  return origin;
 }
 
 /**
@@ -22,6 +40,7 @@ export function baseUrl(): string {
 export class Session {
   private user?: User;
   private client?: AutograderClient;
+  private origin?: string;
   private readonly changed = new vscode.EventEmitter<void>();
   readonly onDidChange = this.changed.event;
 
@@ -33,18 +52,27 @@ export class Session {
 
   /** Returns a client, prompting to sign in if needed. Undefined if the user cancels. */
   async ensureClient(interactive = true): Promise<{ client: AutograderClient; user: User } | undefined> {
-    if (this.client && this.user) return { client: this.client, user: this.user };
+    let origin: string;
+    try { origin = baseUrl(); } catch (e) {
+      if (interactive) void vscode.window.showErrorMessage(`Autograder: ${(e as Error).message}`);
+      return undefined;
+    }
+    if (this.client && this.user && this.origin === origin) return { client: this.client, user: this.user };
+    // A token only ever goes back to the server that issued it, so a workspace's .vscode/settings.json
+    // can't redirect it by changing autograder.baseUrl: pointed elsewhere, you're just signed out.
+    const stored = parseStoredToken(await this.secrets.get(SECRET_KEY));
     // AUTOGRADER_TOKEN lets scripted/demo setups skip the paste-a-token step.
-    const token = await this.secrets.get(SECRET_KEY) ?? process.env.AUTOGRADER_TOKEN;
+    const token = stored?.origin === origin ? stored.token : process.env.AUTOGRADER_TOKEN;
     if (token) {
-      const client = new AutograderClient(baseUrl(), token);
+      const client = new AutograderClient(origin, token);
       try {
         this.user = await client.currentUser();
         this.client = client;
+        this.origin = origin;
         return { client, user: this.user };
       } catch (e) {
         if (!(e instanceof ApiError && e.status === 401)) throw e;
-        await this.secrets.delete(SECRET_KEY);
+        if (token === stored?.token) await this.secrets.delete(SECRET_KEY);
         void vscode.window.showWarningMessage("Your autograder.io token was rejected. Please sign in again.");
       }
     }
@@ -53,12 +81,21 @@ export class Session {
   }
 
   async signIn(): Promise<boolean> {
+    let origin: string;
+    try { origin = baseUrl(); } catch (e) {
+      void vscode.window.showErrorMessage(`Autograder: ${(e as Error).message}`);
+      return false;
+    }
+    // Signing in hands the token to this server, and its token page is where you type your password.
+    if (!(await confirmServer(origin, "Signing in sends your API token to that server, and its sign-in page could ask " +
+      "for your university password."))) return false;
+
     // 1. Reuse a token file that's already on disk.
     const existing = await this.findExistingToken();
     if (existing) {
       const pick = await vscode.window.showInformationMessage(
         `Found an autograder.io token in ${tilde(existing.file)}. Use it?`, "Use it", "Get a new token");
-      if (pick === "Use it" && await this.tryToken(existing.token)) {
+      if (pick === "Use it" && await this.tryToken(existing.token, origin)) {
         await this.tidyDownloadedFile(existing.file);
         return true;
       }
@@ -66,15 +103,15 @@ export class Session {
     }
 
     // 2. The token page downloads the token as a file named "agtoken"; watch for it.
-    const url = `${baseUrl()}/web/__apitoken__`;
+    const url = `${origin}/web/__apitoken__`;
     const choice = await vscode.window.showInformationMessage(
       "Sign in to autograder.io",
       { modal: true, detail: "Your browser will open autograder.io's token page. After you sign in, it downloads " +
         "a small file named \"agtoken\". VS Code picks it up from your Downloads folder automatically." },
       "Open token page", "Choose token file…", "Paste token…");
     if (!choice) return false;
-    if (choice === "Choose token file…") return this.chooseTokenFile();
-    if (choice === "Paste token…") return this.pasteToken();
+    if (choice === "Choose token file…") return this.chooseTokenFile(origin);
+    if (choice === "Paste token…") return this.pasteToken(origin);
 
     const started = Date.now();
     await vscode.env.openExternal(vscode.Uri.parse(url));
@@ -91,15 +128,15 @@ export class Session {
         return undefined;
       });
     if (found) {
-      if (!(await this.tryToken(found.token))) return false;
+      if (!(await this.tryToken(found.token, origin))) return false;
       await this.tidyDownloadedFile(found.file);
       return true;
     }
     // Saved somewhere else, or the browser asked where to save it.
     const next = await vscode.window.showWarningMessage(
       "Didn't see an agtoken file in your Downloads folder.", "Choose token file…", "Paste token…");
-    if (next === "Choose token file…") return this.chooseTokenFile();
-    if (next === "Paste token…") return this.pasteToken();
+    if (next === "Choose token file…") return this.chooseTokenFile(origin);
+    if (next === "Paste token…") return this.pasteToken(origin);
     return false;
   }
 
@@ -112,7 +149,7 @@ export class Session {
     return findDownloadedToken(DOWNLOADS);
   }
 
-  private async chooseTokenFile(): Promise<boolean> {
+  private async chooseTokenFile(origin: string): Promise<boolean> {
     const picked = await vscode.window.showOpenDialog({
       title: "Choose the agtoken file downloaded from autograder.io",
       defaultUri: vscode.Uri.file(DOWNLOADS), canSelectMany: false, openLabel: "Use this token",
@@ -123,12 +160,12 @@ export class Session {
       void vscode.window.showErrorMessage("That file doesn't contain an autograder.io token.");
       return false;
     }
-    if (!(await this.tryToken(t.token))) return false;
+    if (!(await this.tryToken(t.token, origin))) return false;
     await this.tidyDownloadedFile(t.file);
     return true;
   }
 
-  private async pasteToken(): Promise<boolean> {
+  private async pasteToken(origin: string): Promise<boolean> {
     const token = await vscode.window.showInputBox({
       title: "autograder.io API token",
       prompt: "Paste the contents of the agtoken file",
@@ -137,7 +174,7 @@ export class Session {
       validateInput: (v) => (parseToken(v) ? undefined : "That doesn't look like an API token"),
     });
     const parsed = token && parseToken(token);
-    return parsed ? this.tryToken(parsed) : false;
+    return parsed ? this.tryToken(parsed, origin) : false;
   }
 
   /** The downloaded file is a credential in plain text: offer to delete it or keep it as ~/.agtoken (CLI convention). */
@@ -156,10 +193,11 @@ export class Session {
     }
   }
 
-  private async tryToken(token: string): Promise<boolean> {
+  private async tryToken(token: string, origin: string): Promise<boolean> {
     try {
-      const user = await new AutograderClient(baseUrl(), token).currentUser();
-      await this.secrets.store(SECRET_KEY, token);
+      const user = await new AutograderClient(origin, token).currentUser();
+      const stored: StoredToken = { token, origin };
+      await this.secrets.store(SECRET_KEY, JSON.stringify(stored));
       void vscode.window.showInformationMessage(`Signed in to autograder.io as ${user.username}.`);
       return true;
     } catch (e) {

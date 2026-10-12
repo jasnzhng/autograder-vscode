@@ -17,7 +17,7 @@ Visiting `https://autograder.io/web/__apitoken__` while signed in downloads the 
 | Endpoint | Used for |
 |---|---|
 | `GET /api/users/current/` | Validating the token; getting the user pk. |
-| `GET /api/users/<pk>/courses_is_enrolled_in/` · `courses_is_staff_for/` | The course picker. |
+| `GET /api/users/<pk>/courses_is_enrolled_in/` | The course picker. |
 | `GET /api/courses/<pk>/projects/` | The project picker. |
 | `GET /api/projects/<pk>/` | Deadline, daily limit, honor pledge, `expected_student_files` (`pattern`, `min_num_matches`, `max_num_matches`). |
 | `GET /api/users/<pk>/groups_is_member_of/` | Your group for the project. `num_submits_towards_limit` = submissions used today. |
@@ -27,6 +27,10 @@ Visiting `https://autograder.io/web/__apitoken__` while signed in downloads the 
 | `GET /api/submissions/<pk>/ag_test_cmd_results/<pk>/{stdout,stderr}/?feedback_category=…` | A test command's output (plain text). |
 | `GET /api/submissions/<pk>/ag_test_suite_results/<pk>/{stdout,stderr}/?feedback_category=…` | A suite's setup output. |
 | `GET /api/submissions/<pk>/file/?filename=…` | The files you submitted (source maps, hash matching). |
+
+### Student data only
+
+Every submission the extension reads comes from your own group (`groups_is_member_of` → `groups/<pk>/submissions/`). It only requests submissions that appear in that list (or that it just created), and it doesn't call `courses_is_staff_for/`. A staff token could read any student's submissions, which are FERPA-protected records. So even if an IA's workspace ends up bound to a staff project (say, a `makesubmit` with that project's URL), the extension shows only the IA's own group and never anyone else's submissions.
 
 ### Feedback categories
 

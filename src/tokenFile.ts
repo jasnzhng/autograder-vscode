@@ -1,6 +1,7 @@
 // autograder.io's /web/__apitoken__ page doesn't display the token: it downloads it as a file
 // named "agtoken" (see ag-website-vue src/components/api_token.vue). The official CLI expects it
 // saved as ~/.agtoken. Pure helpers (no vscode import) so they can be unit-tested.
+// Also: which server a token may be sent to, and how it's stored.
 import * as fs from "fs/promises";
 import * as path from "path";
 
@@ -13,6 +14,35 @@ export function isDownloadedTokenName(name: string): boolean {
 export function parseToken(contents: string): string | undefined {
   const t = contents.trim().replace(/^["']|["']$/g, "");
   return /^[0-9a-f]{20,64}$/i.test(t) ? t : undefined;
+}
+
+export const DEFAULT_SERVER = "https://autograder.io";
+
+/**
+ * The origin a token may be sent to, from the `autograder.baseUrl` setting: https only, or plain
+ * http on this machine (the demo's mock server). Undefined for anything else.
+ */
+export function serverOrigin(raw: string | undefined): string | undefined {
+  let u: URL;
+  try { u = new URL(raw || DEFAULT_SERVER); } catch { return undefined; }
+  const loopback = u.hostname === "localhost" || u.hostname === "127.0.0.1" || u.hostname === "[::1]";
+  if (u.protocol !== "https:" && !(u.protocol === "http:" && loopback)) return undefined;
+  if (u.username || u.password) return undefined;
+  return u.origin;
+}
+
+/** What's kept in SecretStorage: the token plus the origin it was issued by. */
+export interface StoredToken { token: string; origin: string }
+
+export function parseStoredToken(raw: string | undefined): StoredToken | undefined {
+  if (!raw) return undefined;
+  try {
+    const v = JSON.parse(raw);
+    if (typeof v?.token === "string" && typeof v?.origin === "string") return { token: v.token, origin: v.origin };
+  } catch { /* not JSON: an older bare token */ }
+  // 0.1.x stored the bare token, and it could only have come from the default server.
+  const token = parseToken(raw);
+  return token ? { token, origin: DEFAULT_SERVER } : undefined;
 }
 
 export interface TokenFile { file: string; token: string; mtimeMs: number }

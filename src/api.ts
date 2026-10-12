@@ -186,13 +186,10 @@ export class AutograderClient {
 
   currentUser() { return this.json<User>("/api/users/current/"); }
 
-  async coursesEnrolled(userPk: number): Promise<Course[]> {
-    const [enrolled, staff] = await Promise.all([
-      this.json<Course[]>(`/api/users/${userPk}/courses_is_enrolled_in/`),
-      this.json<Course[]>(`/api/users/${userPk}/courses_is_staff_for/`),
-    ]);
-    const seen = new Set<number>();
-    return [...enrolled, ...staff].filter((c) => !seen.has(c.pk) && seen.add(c.pk));
+  /** Courses you're a student in. Staff courses are deliberately left out: this is a student tool,
+   *  and a staff token can read other students' submissions (FERPA-protected), so we never go there. */
+  coursesEnrolled(userPk: number) {
+    return this.json<Course[]>(`/api/users/${userPk}/courses_is_enrolled_in/`);
   }
 
   projects(coursePk: number) { return this.json<Project[]>(`/api/courses/${coursePk}/projects/`); }

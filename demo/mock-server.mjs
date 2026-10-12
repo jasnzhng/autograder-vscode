@@ -159,7 +159,6 @@ submissions.forEach((s) => results(s.pk));   // populate cmdIndex
 const routes = [
   [/^\/api\/users\/current\/$/, () => user],
   [/^\/api\/users\/1\/courses_is_enrolled_in\/$/, () => [course]],
-  [/^\/api\/users\/1\/courses_is_staff_for\/$/, () => []],
   [/^\/api\/courses\/1\/projects\/$/, () => [project]],
   [/^\/api\/projects\/101\/$/, () => project],
   [/^\/api\/users\/1\/groups_is_member_of\/$/, () => [group]],

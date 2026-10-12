@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { baseUrl, Session } from "./session";
+import { baseUrl, confirmServer, Session } from "./session";
 import { cfg, pickProject, resolveProjectId, setDevMode, workspaceRoot } from "./binding";
 import { AutograderPanel, PanelDeps } from "./panel";
 import { pollUntilDone, runPrepare, runSubmit, scoreLabel } from "./submit";
@@ -143,7 +143,10 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand("autograder.openInBrowser", async () => {
       const folder = workspaceRoot();
       const id = folder && cfg(folder).get<number | null>("projectId");
-      await vscode.env.openExternal(vscode.Uri.parse(id ? `${baseUrl()}/web/project/${id}` : baseUrl()));
+      let base: string;
+      try { base = baseUrl(); } catch (e) { void vscode.window.showErrorMessage(`Autograder: ${(e as Error).message}`); return; }
+      if (!(await confirmServer(base, "Its pages could imitate autograder.io's sign-in."))) return;
+      await vscode.env.openExternal(vscode.Uri.parse(id ? `${base}/web/project/${id}` : base));
     }),
 
     vscode.commands.registerCommand("autograder.clearProblems", () => diagnostics.clear()),

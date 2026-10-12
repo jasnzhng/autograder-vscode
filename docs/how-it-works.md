@@ -19,9 +19,11 @@ autograder.io signs you in with Google. Google's sign-in pages can't be used ins
 1. **Reuse a token that's already on disk.** It checks `~/.agtoken` (where autograder.io's CLI expects the token), a `.agtoken` in the workspace, and any `agtoken` already in `~/Downloads`. It asks before using one.
 2. **Otherwise, open the token page and watch `~/Downloads`.** It looks for a new file named `agtoken`, or `agtoken (1)`, `agtoken-2`, `agtoken.txt` (the names browsers give repeat downloads), created after sign-in started. It checks for up to 5 minutes, and you can cancel.
 3. **Fall back** to choosing the file by hand, or pasting its contents.
-4. **Validate and store.** The token is checked against `GET /api/users/current/` and stored in VS Code's [`SecretStorage`](https://code.visualstudio.com/api/references/vscode-api#SecretStorage), which is backed by the OS keychain. The downloaded file is a credential in plain text, so the extension offers to delete it, or move it to `~/.agtoken` (permissions `600`) for use with the CLI.
+4. **Validate and store.** The token is checked against `GET /api/users/current/` and stored, together with the server it came from, in VS Code's [`SecretStorage`](https://code.visualstudio.com/api/references/vscode-api#SecretStorage), which is backed by the OS keychain. The downloaded file is a credential in plain text, so the extension offers to delete it, or move it to `~/.agtoken` (permissions `600`) for use with the CLI.
 
 On macOS, VS Code may ask once for permission to read your Downloads folder.
+
+The token is only ever sent back to the server that issued it. `autograder.baseUrl` can be set by a project's `.vscode/settings.json`, so if it points anywhere else the extension treats you as signed out instead of sending the token there. Signing in to a server other than autograder.io asks for confirmation first, and the URL must be `https://` (plain `http://` only on localhost, for the demo kit).
 
 > autograder.io keeps exactly **one** token per user, and your browser session uses it too. That's why **Sign Out** only forgets the token locally. Revoking it on the website would also log you out of the site.
 
