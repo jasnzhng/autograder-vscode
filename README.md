@@ -13,7 +13,7 @@ Works with any project on [autograder.io](https://autograder.io).
 ![VS Code](https://img.shields.io/badge/VS%20Code-%E2%89%A51.95-007ACC?logo=visualstudiocode&logoColor=white)
 ![Tests](https://img.shields.io/badge/tests-node%20--test-brightgreen)
 
-<img src="docs/images/sidebar.png" alt="The Autograder sidebar in VS Code: submissions with scores, a failing test's output with a bundled-JS stack frame source-mapped to web/src/App.jsx:15, that file open in the editor, and the failures listed in the Problems panel" width="900">
+<img src="docs/images/sidebar.png" alt="The Autograder sidebar in VS Code: submissions with scores and a failing test's output, web/src/App.jsx open at line 15 where a bundled-JS crash was source-mapped back to, and the failures listed in the Problems panel" width="900">
 
 </div>
 
@@ -56,6 +56,8 @@ Many projects grade a test by comparing your program's output with an expected o
 - **Long matching stretches are collapsed** to a few lines of context. Click to expand them.
 - **Show whitespace** turns spaces, tabs and line ends into `·`, `→` and `↵`. A missing newline at the end and Windows `\r` line endings are always marked, since otherwise the two lines look identical.
 - **Open in diff editor** opens the expected output next to your real output in VS Code's own diff editor.
+
+<img src="docs/images/output-diff.png" alt="A failing expected-output test in the wide Autograder tab: expected and actual output side by side, with a missing first line, amounts printed as 1.5 instead of 1.50, a stray trailing space after 'Steps:' and a missing final newline highlighted" width="900">
 
 ### Submit in one click
 
