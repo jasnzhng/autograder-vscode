@@ -39,6 +39,7 @@ const PUBLIC = [
   ["test_layout_public", "header and search bar render", 3],
   ["test_api_recipe_public", "GET /api/recipes/<id>", 3],
   ["test_units_public", "amounts are rounded to 2 decimals", 2],
+  ["test_export_public", "recipe export matches the expected output", 4],
 ];
 const PROTECTED = [
   ["test_api_private", 12], ["test_add_recipe_private", 8], ["test_search_private", 10],
@@ -46,10 +47,10 @@ const PROTECTED = [
 ];
 // Which tests fail in which submission (the story: crash → fixed → polishing).
 const FAILS = {
-  1001: ["test_home_page_public", "test_recipe_detail_public", "test_search_public", "test_layout_public", "test_api_recipe_public", "test_units_public",
+  1001: ["test_export_public", "test_home_page_public", "test_recipe_detail_public", "test_search_public", "test_layout_public", "test_api_recipe_public", "test_units_public",
          "test_api_private", "test_add_recipe_private", "test_search_private", "test_units_private", "test_edit_recipe_private"],
-  1002: ["test_home_page_public", "test_recipe_detail_public", "test_api_recipe_public", "test_api_private", "test_add_recipe_private", "test_edit_recipe_private", "test_delete_private"],
-  1003: ["test_home_page_public", "test_recipe_detail_public", "test_api_recipe_public", "test_api_private", "test_add_recipe_private"],
+  1002: ["test_export_public", "test_home_page_public", "test_recipe_detail_public", "test_api_recipe_public", "test_api_private", "test_add_recipe_private", "test_edit_recipe_private", "test_delete_private"],
+  1003: ["test_export_public", "test_home_page_public", "test_recipe_detail_public", "test_api_recipe_public", "test_api_private", "test_add_recipe_private"],
   1004: ["test_add_recipe_private", "test_units_private"],
 };
 
@@ -104,7 +105,49 @@ Traceback (most recent call last):
 IndexError: No item with that key
 `;
 
+// test_export_public is graded like EECS 280's .correct files: stdout vs. an expected output.
+const ingredients = [[1.5, "cups", "flour"], [2, "tbsp", "sugar"], [2, "tsp", "baking powder"], [0.25, "tsp", "salt"],
+  [1.25, "cups", "milk"], [2, "", "eggs"], [3, "tbsp", "butter"], [1, "tsp", "vanilla"], [0.75, "cups", "blueberries"],
+  [0.5, "cups", "maple syrup"]];
+const steps = ["Whisk the dry ingredients.", "Melt the butter.", "Whisk milk, eggs, butter and vanilla.",
+  "Fold wet into dry; leave it lumpy.", "Rest the batter 5 minutes.", "Heat a griddle to medium.",
+  "Pour 1/4 cup per pancake.", "Scatter blueberries on top.", "Flip when bubbles form.", "Cook 1 more minute.",
+  "Keep warm in a low oven.", "Serve with maple syrup."];
+function exportOutput(rounded) {
+  const fmt = (q) => (rounded || String(q).length !== 3 ? q.toFixed(2) : String(q));   // the bug: "1.5", not "1.50"
+  return [
+    "./recipes export --format=text pancakes",
+    "Blueberry Pancakes (serves 4)",
+    "Ingredients:",
+    ...ingredients.map(([q, unit, name]) => `  ${fmt(q)} ${unit ? unit + " " : ""}${name}`),
+    rounded ? "Steps:" : "Steps: ",
+    ...steps.map((st, i) => `  ${i + 1}. ${st}`),
+    "Total time: 25 min",
+  ].join("\n") + (rounded ? "\n" : "");
+}
+const expectedExport = exportOutput(true);
+// The student's version doesn't echo the command, rounds wrong, and has a stray space and no final newline.
+const actualExport = exportOutput(false).split("\n").slice(1).join("\n");
+
+/** Same shape as autograder.io's stdout_diff: "  " / "- " (expected) / "+ " (actual) + line incl. "\n". */
+function lineDiff(a, b) {
+  const split = (t) => (t.match(/[^\n]*\n|[^\n]+$/g) ?? []);
+  const x = split(a), y = split(b);
+  const L = Array.from({ length: x.length + 1 }, () => new Array(y.length + 1).fill(0));
+  for (let i = x.length - 1; i >= 0; i--) for (let j = y.length - 1; j >= 0; j--)
+    L[i][j] = x[i] === y[j] ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1]);
+  const out = [];
+  let i = 0, j = 0;
+  while (i < x.length || j < y.length) {
+    if (i < x.length && j < y.length && x[i] === y[j]) { out.push("  " + x[i++]); j++; }
+    else if (j < y.length && (i === x.length || L[i][j + 1] > L[i + 1][j])) out.push("+ " + y[j++]);
+    else out.push("- " + x[i++]);
+  }
+  return out;
+}
+
 function outputFor(subPk, testName, desc, stream) {
+  if (testName === "test_export_public") return stream === "stdout" ? (subPk <= 1003 ? actualExport : expectedExport) : "";
   if (testName === "test_api_recipe_public") return stream === "stdout" ? pytestOutput : pyTraceback;
   const crash = subPk <= 1003 && (testName === "test_home_page_public" || testName === "test_recipe_detail_public");
   return stream === "stdout" ? browserTestOutput(desc, crash) : "";
@@ -112,6 +155,8 @@ function outputFor(subPk, testName, desc, stream) {
 
 const visible = { visible: true, show_actual_stdout: true, show_actual_stderr: true, stdout_fdbk_level: "correct_or_incorrect", stderr_fdbk_level: "correct_or_incorrect", return_code_fdbk_level: "correct_or_incorrect", show_points: true };
 const hidden = { ...visible, show_actual_stdout: false, show_actual_stderr: false };
+// Only the diff grants output: show_actual_stdout stays false, as on many real projects.
+const compared = { ...hidden, stdout_fdbk_level: "expected_and_actual" };
 const cmdIndex = new Map();   // cmd pk → {sub, test, desc}
 
 function results(subPk) {
@@ -128,12 +173,12 @@ function results(subPk) {
         pk, ag_test_command_pk: n, ag_test_command_name: desc, fdbk_settings: fdbk, student_description: "",
         student_on_fail_description: null, timed_out: false, return_code_correct: ok, expected_return_code: null,
         actual_return_code: null, return_code_points: ok ? pts : 0, return_code_points_possible: pts,
-        stdout_correct: null, stdout_points: 0, stdout_points_possible: 0, stderr_correct: null, stderr_points: 0, stderr_points_possible: 0,
+        stdout_correct: fdbk === compared ? ok : null, stdout_points: 0, stdout_points_possible: 0, stderr_correct: null, stderr_points: 0, stderr_points_possible: 0,
         custom_scoring_used: false, total_points: ok ? pts : 0, total_points_possible: pts,
       }],
     };
   };
-  const pub = PUBLIC.map(([name, desc, pts]) => mkCase(name, desc, pts, visible));
+  const pub = PUBLIC.map(([name, desc, pts]) => mkCase(name, desc, pts, name === "test_export_public" ? compared : visible));
   const prot = PROTECTED.map(([name, pts]) => mkCase(name, name, pts, hidden));
   const sum = (cs, k) => cs.reduce((a, c) => a + c[k], 0);
   const suite = (pk, name, cases) => ({
@@ -168,6 +213,13 @@ const routes = [
   [/^\/api\/submissions\/(\d+)\/ag_test_cmd_results\/(\d+)\/(stdout|stderr)\/$/, (m) => {
     const c = cmdIndex.get(+m[2]);
     return c ? { text: outputFor(c.sub, c.test, c.desc, m[3]) } : undefined;
+  }],
+  [/^\/api\/submissions\/(\d+)\/ag_test_cmd_results\/(\d+)\/(stdout|stderr)_diff\/$/, (m) => {
+    const c = cmdIndex.get(+m[2]);
+    if (!c) return undefined;
+    // Like the server: no expected output (or not shown) → an empty body, not JSON.
+    if (c.test !== "test_export_public" || m[3] !== "stdout") return { text: "" };
+    return lineDiff(expectedExport, outputFor(c.sub, c.test, c.desc, "stdout"));
   }],
   [/^\/api\/submissions\/(\d+)\/ag_test_suite_results\/(\d+)\/(stdout|stderr)\/$/, () => ({ text: "" })],
   [/^\/api\/submissions\/(\d+)\/file\/$/, () => ({ file: path.join(dir, "submit.tar.gz") })],

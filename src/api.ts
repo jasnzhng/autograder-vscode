@@ -95,9 +95,24 @@ export interface CommandResult {
     visible: boolean;
     show_actual_stdout: boolean;
     show_actual_stderr: boolean;
-    stdout_fdbk_level: string;
-    stderr_fdbk_level: string;
+    stdout_fdbk_level: ValueFeedbackLevel;
+    stderr_fdbk_level: ValueFeedbackLevel;
   };
+}
+
+export type ValueFeedbackLevel = "no_feedback" | "correct_or_incorrect" | "expected_and_actual";
+
+/** The server shows actual output when either flag allows it (submission_feedback.py _show_actual_stdout),
+ *  and only `expected_and_actual` comes with an expected-vs-actual diff. */
+export function canSeeOutput(cmd: Pick<CommandResult, "fdbk_settings">, stream: "stdout" | "stderr"): boolean {
+  const f = cmd.fdbk_settings;
+  return stream === "stdout"
+    ? f.show_actual_stdout || f.stdout_fdbk_level === "expected_and_actual"
+    : f.show_actual_stderr || f.stderr_fdbk_level === "expected_and_actual";
+}
+
+export function hasDiff(cmd: Pick<CommandResult, "fdbk_settings">, stream: "stdout" | "stderr"): boolean {
+  return cmd.fdbk_settings[`${stream}_fdbk_level`] === "expected_and_actual";
 }
 
 export interface CaseResult {
@@ -220,6 +235,19 @@ export class AutograderClient {
       `/api/submissions/${sub.pk}/ag_test_cmd_results/${cmdResultPk}/${stream}/` +
       `?feedback_category=${feedbackCategoryFor(sub)}`);
     return res.text();
+  }
+
+  /** Expected-vs-actual diff lines ("  ", "- " expected, "+ " yours), [] when they match,
+   *  or null when the test has no expected output or it isn't shown to students. */
+  async commandDiff(sub: Pick<Submission, "pk" | "is_past_daily_limit">, cmdResultPk: number,
+                    stream: "stdout" | "stderr"): Promise<string[] | null> {
+    const res = await this.request(
+      `/api/submissions/${sub.pk}/ag_test_cmd_results/${cmdResultPk}/${stream}_diff/` +
+      `?feedback_category=${feedbackCategoryFor(sub)}`);
+    // "No diff" comes back as an empty body, not JSON.
+    const text = (await res.text()).trim();
+    const body: unknown = text ? JSON.parse(text) : null;
+    return Array.isArray(body) ? body.map(String) : null;
   }
 
   async suiteSetupOutput(sub: Pick<Submission, "pk" | "is_past_daily_limit">, suiteResultPk: number,

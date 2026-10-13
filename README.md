@@ -28,6 +28,7 @@ This extension brings autograder.io into VS Code, so you can easily compare subm
 |---|---|
 | **Results sidebar** | Every submission with its score. Each test suite and test is expandable, with output loaded on demand. |
 | **Clickable line numbers** | `file.py:42`, Python tracebacks, gcc/clang errors and valgrind frames become links. **Minified `bundle.js` frames are source-mapped back to your `.jsx`.** |
+| **Expected vs. actual output** | For tests graded against an expected output (like EECS 280's `.correct` files), see exactly which lines differ, side by side, with stray spaces and missing newlines made visible. |
 | **Failures in the Problems panel** | One click turns every failing test's file references into red squiggles in your code. |
 | **Tarball-aware submitting** | For classes that expect a tarball instead of individual files, paste the spec's `tar` command once, or pick the files to include. After that, building the submission is one click. |
 | **Git time travel** | Each submission is tied to the exact code that produced it. Diff any submission against your current code, revert changes, or check it out as a branch. |
@@ -46,6 +47,15 @@ Click any file reference in test output to open that line.
 - **Library frames stay unlinked.** Frames inside React or other libraries aren't linked, so only your code is.
 
 **Show failures in Problems** reads the output of every failing test you're allowed to see and adds an entry for each file reference. Each entry is labeled with the test name and the real error message.
+
+### See where your output differs
+
+Many projects grade a test by comparing your program's output with an expected output. When autograder.io shows you that comparison, so does the extension:
+
+- **Side by side** in a wide panel (unified in the narrow sidebar), with the same line numbers as the website. The part of each line that differs is highlighted.
+- **Long matching stretches are collapsed** to a few lines of context. Click to expand them.
+- **Show whitespace** turns spaces, tabs and line ends into `·`, `→` and `↵`. A missing newline at the end and Windows `\r` line endings are always marked, since otherwise the two lines look identical.
+- **Open in diff editor** opens the expected output next to your real output in VS Code's own diff editor.
 
 ### Submit in one click
 

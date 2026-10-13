@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.3
+
+- **Expected vs. actual output.** For tests graded by comparing your output with an expected output (like EECS 280's `.correct` files), "Output & diff" shows autograder.io's diff: side by side when there's room, unified in the sidebar, with the changed part of each line highlighted and long matching stretches collapsed. "Show whitespace" makes spaces, tabs and line ends visible, and a missing final newline or `\r` is always marked. "Open in diff editor" compares the expected output with your real output in VS Code's diff editor.
+- **Fixed: output wrongly marked "output hidden".** Tests whose feedback shows expected and actual output, but not "show actual output", now show your output, and their failures appear in "Show failures in Problems".
+- **Fixed: a required file reported missing when it also matched a wildcard.** When one file matched two expected patterns, it only counted toward the first. In EECS 370, for example, `simulator.c` also matches `*.[as,s,lc2k]`, so submitting stopped with "No file matching simulator.c". Like autograder.io, a file now counts toward every pattern it matches, and it's still uploaded only once.
+
 ## 0.1.2
 
 - **Your token only goes back to the server that issued it.** Before, a project's `.vscode/settings.json` could set `autograder.baseUrl` and have VS Code send your stored token there as soon as the folder opened. Now the token is stored with its server, and when the setting points anywhere else you're simply signed out. Signing in to a server other than autograder.io asks first, and the URL must be `https://` (plain `http://` only on localhost). Tokens saved by 0.1.x are treated as autograder.io's.

@@ -151,3 +151,41 @@ pre a:hover { color: var(--vscode-textLink-activeForeground); text-decoration: u
   pre { max-height: 320px; }
   .banner { flex-direction: column; align-items: stretch; }
 }
+
+/* Expected-vs-actual output diffs. */
+.stream .label { display: flex; gap: 8px; align-items: center; }
+.tabs { display: inline-flex; gap: 2px; text-transform: none; letter-spacing: 0; }
+.tabs .tab { padding: 0 6px; font-size: .95em; background: none; border: 1px solid transparent; color: var(--muted); }
+.tabs .tab.on { border-color: var(--border); color: var(--vscode-foreground); background: var(--vscode-textCodeBlock-background); }
+.diffbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 2px 0 4px; }
+.diffbar label { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
+.del-text { color: var(--vscode-gitDecoration-deletedResourceForeground, var(--fail)); }
+.add-text { color: var(--vscode-gitDecoration-addedResourceForeground, var(--pass)); }
+.pass-text { color: var(--pass); }
+.diffscroll {
+  max-height: 520px; overflow: auto; border-radius: 3px; background: var(--vscode-textCodeBlock-background);
+}
+table.difftable {
+  width: 100%; border-collapse: collapse; table-layout: fixed;
+  font-family: var(--vscode-editor-font-family); font-size: var(--vscode-editor-font-size);
+}
+.difftable th {
+  position: sticky; top: 0; z-index: 1; text-align: left; font-weight: 600; padding: 4px 8px;
+  font-family: var(--vscode-font-family); background: var(--vscode-editor-background); border-bottom: 1px solid var(--border);
+}
+.difftable td { padding: 0 8px; vertical-align: top; white-space: pre-wrap; overflow-wrap: anywhere; }
+.difftable col.gutter { width: 5ch; }
+.difftable td.n {
+  padding: 0 6px; text-align: right; color: var(--vscode-editorLineNumber-foreground, var(--muted));
+  user-select: none; font-variant-numeric: tabular-nums;
+}
+.difftable td.mid { border-right: 1px solid var(--border); }
+.difftable td.del { background: var(--vscode-diffEditor-removedLineBackground, rgba(255,0,0,.12)); }
+.difftable td.add { background: var(--vscode-diffEditor-insertedLineBackground, rgba(0,200,0,.12)); }
+.difftable td.empty { background: repeating-linear-gradient(-45deg, transparent 0 4px, rgba(128,128,128,.08) 4px 8px); }
+.difftable td.del .hl { background: var(--vscode-diffEditor-removedTextBackground, rgba(255,0,0,.3)); border-radius: 2px; }
+.difftable td.add .hl { background: var(--vscode-diffEditor-insertedTextBackground, rgba(0,200,0,.3)); border-radius: 2px; }
+.difftable .sign { display: inline-block; width: 1.5ch; color: var(--muted); user-select: none; }
+.difftable .ws { color: var(--muted); opacity: .7; }
+.difftable .noeol { font-family: var(--vscode-font-family); font-size: .85em; font-style: italic; opacity: 1; }
+.difftable tr.skip td { padding: 2px 8px; text-align: center; background: color-mix(in srgb, var(--vscode-textLink-foreground) 8%, transparent); }

@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import { baseUrl, confirmServer, Session } from "./session";
 import { cfg, pickProject, resolveProjectId, setDevMode, workspaceRoot } from "./binding";
-import { AutograderPanel, PanelDeps } from "./panel";
+import { AutograderPanel, OutputDocs, PanelDeps } from "./panel";
 import { pollUntilDone, runPrepare, runSubmit, scoreLabel } from "./submit";
 import { configureSubmission, isConfigured } from "./onboarding";
 import { AutograderClient, User } from "./api";
@@ -14,7 +14,7 @@ export function activate(context: vscode.ExtensionContext) {
   const diagnostics = vscode.languages.createDiagnosticCollection("autograder");
   const status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 50);
   status.command = "autograder.openPanel";
-  context.subscriptions.push(output, diagnostics, status);
+  context.subscriptions.push(output, diagnostics, status, OutputDocs.register());
 
   /** Signed-in client + bound project for the active workspace folder. */
   const connect: PanelDeps["connect"] = async (interactive) => {

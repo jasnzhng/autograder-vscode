@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { AutograderClient, CommandResult, Submission, SubmissionResults } from "./api";
+import { AutograderClient, canSeeOutput, CommandResult, Submission, SubmissionResults } from "./api";
 import { findFileRefs, messageNear, stripAnsi } from "./linkParser";
 import { RefResolver } from "./resolver";
 
@@ -49,7 +49,7 @@ export function failedVisibleCommands(results: SubmissionResults): Array<{ testN
       for (const cmd of c.ag_test_command_results) {
         const failed = cmd.total_points < cmd.total_points_possible
           || cmd.return_code_correct === false || cmd.stdout_correct === false || cmd.stderr_correct === false;
-        if (failed && (cmd.fdbk_settings.show_actual_stdout || cmd.fdbk_settings.show_actual_stderr)) {
+        if (failed && (canSeeOutput(cmd, "stdout") || canSeeOutput(cmd, "stderr"))) {
           const testName = c.ag_test_command_results.length > 1
             ? `${c.ag_test_case_name} › ${cmd.ag_test_command_name}` : c.ag_test_case_name;
           out.push({ testName, cmd });
@@ -72,8 +72,7 @@ export async function publishProblems(
   for (const { testName, cmd } of failedVisibleCommands(results)) {
     if (token?.isCancellationRequested) break;
     for (const stream of ["stdout", "stderr"] as const) {
-      const allowed = stream === "stdout" ? cmd.fdbk_settings.show_actual_stdout : cmd.fdbk_settings.show_actual_stderr;
-      if (!allowed) continue;
+      if (!canSeeOutput(cmd, stream)) continue;
       const text = stripAnsi(await client.commandOutput(sub, cmd.pk, stream).catch(() => ""));
       const seen = new Set<string>();
       for (const ref of findFileRefs(text)) {

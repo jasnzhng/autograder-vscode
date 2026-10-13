@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import * as path from "path";
-import { AutograderClient, Group, Project, Submission, SubmissionResults, User } from "./api";
+import { AutograderClient, CommandResult, Group, hasDiff, Project, Submission, SubmissionResults, User } from "./api";
+import { buildView, expectedText } from "./diff";
 import { isDryRun } from "./binding";
 import { isConfigured } from "./onboarding";
 import * as git from "./git";
@@ -229,15 +230,12 @@ export class AutograderPanel {
       case "popOut": return vscode.commands.executeCommand("autograder.openInEditor", m.pk);
       case "output": return this.loadOutput(m.pk, m.cmdPk, m.key);
       case "setupOutput": return this.loadSetupOutput(m.pk, m.suitePk, m.key);
+      case "openDiff": return this.openDiff(m.pk, m.cmdPk, m.stream);
       case "open": {
         const loc = this.links.get(m.link);
         if (!loc) return;
         const pos = new vscode.Position(Math.max(0, loc.line - 1), Math.max(0, loc.column - 1));
-        // Keep the results visible: from an editor tab, open code in the other column.
-        const own = this.host.column();
-        const column = own === undefined ? vscode.ViewColumn.Active
-          : own === vscode.ViewColumn.One ? vscode.ViewColumn.Two : vscode.ViewColumn.One;
-        await vscode.window.showTextDocument(loc.uri, { viewColumn: column, selection: new vscode.Range(pos, pos) });
+        await vscode.window.showTextDocument(loc.uri, { viewColumn: this.otherColumn(), selection: new vscode.Range(pos, pos) });
         return;
       }
       case "problems": return this.showProblems(m.pk);
@@ -251,18 +249,62 @@ export class AutograderPanel {
     }
   }
 
+  /** Keep the results visible: from an editor tab, open things in the other column. */
+  private otherColumn(): vscode.ViewColumn {
+    const own = this.host.column();
+    return own === undefined ? vscode.ViewColumn.Active
+      : own === vscode.ViewColumn.One ? vscode.ViewColumn.Two : vscode.ViewColumn.One;
+  }
+
   private async loadOutput(pk: number, cmdPk: number, key: string) {
     const sub = this.submissions.find((s) => s.pk === pk)!;
     const resolver = this.resolverFor(sub);
-    const [stdout, stderr] = await Promise.all([
-      this.conn!.client.commandOutput(sub, cmdPk, "stdout").catch(() => ""),
-      this.conn!.client.commandOutput(sub, cmdPk, "stderr").catch(() => ""),
+    const client = this.conn!.client;
+    const cmd = this.findCommand(pk, cmdPk)?.cmd;
+    // Tests graded against an expected output (e.g. EECS 280's .correct files) also get the diff.
+    const diff = (stream: "stdout" | "stderr") => cmd && hasDiff(cmd, stream)
+      ? client.commandDiff(sub, cmdPk, stream).then((d) => d && buildView(d)).catch(() => null) : null;
+    const [stdout, stderr, stdoutDiff, stderrDiff] = await Promise.all([
+      client.commandOutput(sub, cmdPk, "stdout").catch(() => ""),
+      client.commandOutput(sub, cmdPk, "stderr").catch(() => ""),
+      diff("stdout"), diff("stderr"),
     ]);
     this.post({
       type: "output", key,
       stdout: await segmentOutput(stdout, resolver, this.links),
       stderr: await segmentOutput(stderr, resolver, this.links),
+      diffs: { stdout: stdoutDiff, stderr: stderrDiff },
     });
+  }
+
+  private findCommand(pk: number, cmdPk: number): { testName: string; cmd: CommandResult } | undefined {
+    for (const suite of this.results.get(pk)?.ag_test_suite_results ?? []) {
+      for (const c of suite.ag_test_case_results) {
+        const cmd = c.ag_test_command_results.find((x) => x.pk === cmdPk);
+        if (cmd) return { cmd, testName: c.ag_test_command_results.length > 1 ? `${c.ag_test_case_name} › ${cmd.ag_test_command_name}` : c.ag_test_case_name };
+      }
+    }
+    return undefined;
+  }
+
+  /** Expected output vs. your real output in VS Code's diff editor. */
+  private async openDiff(pk: number, cmdPk: number, stream: "stdout" | "stderr") {
+    const sub = this.submissions.find((s) => s.pk === pk);
+    const found = this.findCommand(pk, cmdPk);
+    if (!sub || !found || !this.conn) return;
+    const [diff, actual] = await Promise.all([
+      this.conn.client.commandDiff(sub, cmdPk, stream),
+      this.conn.client.commandOutput(sub, cmdPk, stream),
+    ]);
+    if (!diff) { void vscode.window.showInformationMessage("autograder.io doesn't show the expected output for this test."); return; }
+    // A match may come back as [], which carries no expected text to rebuild.
+    if (!diff.length) { void vscode.window.showInformationMessage("Your output matches the expected output."); return; }
+    // Expected is rebuilt from the diff; "yours" is the real output, so the editor shows it byte-for-byte.
+    const name = found.testName.replace(/[^\w.-]+/g, "_");
+    const left = OutputDocs.put(`submission-${pk}/${name}.expected-${stream}.txt`, expectedText(diff));
+    const right = OutputDocs.put(`submission-${pk}/${name}.your-${stream}.txt`, actual);
+    await vscode.commands.executeCommand("vscode.diff", left, right,
+      `${found.testName}: Expected ↔ Yours (#${pk} ${stream})`, { preview: true, viewColumn: this.otherColumn() });
   }
 
   private async loadSetupOutput(pk: number, suitePk: number, key: string) {
@@ -357,6 +399,27 @@ export class AutograderPanel {
 <div id="app"><div class="empty">Loading…</div></div>
 <script nonce="${nonce}" src="${media("panel.js")}"></script>
 </body></html>`;
+  }
+}
+
+/** Read-only in-memory documents for the diff editor (expected / actual test output). */
+export class OutputDocs implements vscode.TextDocumentContentProvider {
+  static readonly scheme = "autograder-output";
+  private static docs = new Map<string, string>();
+  private static changed = new vscode.EventEmitter<vscode.Uri>();
+  readonly onDidChange = OutputDocs.changed.event;
+
+  static put(name: string, text: string): vscode.Uri {
+    const uri = vscode.Uri.from({ scheme: OutputDocs.scheme, path: "/" + name });
+    OutputDocs.docs.set(uri.path, text);   // keyed by the decoded path, which survives VS Code's URI round-trip
+    OutputDocs.changed.fire(uri);
+    return uri;
+  }
+
+  provideTextDocumentContent(uri: vscode.Uri): string { return OutputDocs.docs.get(uri.path) ?? ""; }
+
+  static register(): vscode.Disposable {
+    return vscode.workspace.registerTextDocumentContentProvider(OutputDocs.scheme, new OutputDocs());
   }
 }
 

@@ -21,6 +21,7 @@ Press **F5** in VS Code to launch an Extension Development Host. In that mode `a
 |---|---|
 | `test/linkParser.test.ts` | Reference patterns (Cypress/browser stacks, Python tracebacks, pytest, gcc/clang, valgrind), choosing messages, source-path normalization, fnmatch, expected-file matching, inferring archive contents, generated and pasted tar commands. |
 | `test/git.test.ts` | Snapshots in throwaway repos. Checks that `HEAD`, the index and `git status` are unchanged afterwards, that untracked files are captured, that `.gitignore` is respected, and that the "compare with current" diff and timestamp-based commit lookup are correct. |
+| `test/diff.test.ts` | Parsing autograder.io's output diffs (missing final newline, `\r`), aligning them side by side like the website, highlighting the changed part of a line, collapsing unchanged runs, and rebuilding the expected output. |
 | `test/pending.test.ts` | Hash-matching website uploads to builds, including choosing the right build out of several and never re-downloading a submission. |
 
 Modules covered by unit tests avoid importing `vscode` at runtime, so they run under plain `node --test`.
@@ -41,7 +42,8 @@ AUTOGRADER_TOKEN=demo code --extensionDevelopmentPath="$PWD" /tmp/ag-demo
   - `.vscode/settings.json` pointing at the mock server (`autograder.baseUrl`).
 - **`demo/mock-server.mjs`** serves four graded submissions. Their output includes:
   - a crash in the bundled `app.js` that maps back to `web/src/App.jsx`,
-  - a pytest failure with a Python traceback into `server/routes.py`.
+  - a pytest failure with a Python traceback into `server/routes.py`,
+  - an expected-output test (`test_export_public`) whose only feedback is the diff, with a rounding bug, a stray trailing space and a missing final newline.
 
   It accepts any token and refuses every non-GET request.
 - **`AUTOGRADER_TOKEN`**: when it's set and there's no stored token for the configured server, the extension uses it. Handy for demos and automation. Unlike a stored token, it's sent to whatever `autograder.baseUrl` says, so never put a real token in it.

@@ -7,7 +7,12 @@
   let results = null;        // results for `selected`
   const scores = {};         // pk -> {points, possible}
   const openKeys = new Set(); // expanded command outputs, survive re-render
-  const outputs = {};         // key -> {stdout, stderr} segments, survive re-render
+  const outputs = {};         // key -> {stdout, stderr, diffs} segments, survive re-render
+  const outputCmd = {};       // key -> {pk, cmdPk} for "Open in diff editor"
+  const streamView = {};      // `${key}:${stream}` -> "diff" | "output"
+  const expanded = new Set(); // `${key}:${stream}:${first expected line}` of unfolded unchanged runs
+  let prefs = Object.assign({ showWs: false }, (vscode.getState() || {}).prefs);
+  const wide = window.matchMedia("(min-width: 640px)");
 
   // ---- tiny DOM helper ----------------------------------------------------
   function h(tag, attrs, ...kids) {
@@ -170,7 +175,10 @@
       body);
   }
 
-  const hasVisibleOutput = (c) => c.ag_test_command_results.some((x) => x.fdbk_settings.show_actual_stdout || x.fdbk_settings.show_actual_stderr);
+  // Same rule as the server: `expected_and_actual` feedback also shows the actual output (and a diff).
+  const canSee = (cmd, stream) => cmd.fdbk_settings[`show_actual_${stream}`] || cmd.fdbk_settings[`${stream}_fdbk_level`] === "expected_and_actual";
+  const hasDiff = (cmd) => cmd.fdbk_settings.stdout_fdbk_level === "expected_and_actual" || cmd.fdbk_settings.stderr_fdbk_level === "expected_and_actual";
+  const hasVisibleOutput = (c) => c.ag_test_command_results.some((x) => canSee(x, "stdout") || canSee(x, "stderr"));
 
   function commandView(sub, cmd, showName) {
     const key = `cmd-${cmd.pk}`;
@@ -180,12 +188,14 @@
       "exit code", cmd.actual_return_code != null ? ` ${cmd.actual_return_code}` : "", cmd.expected_return_code != null ? ` (expected ${cmd.expected_return_code})` : " ✗"));
     if (cmd.stdout_correct === false) checks.push(h("span", { class: "chip fail" }, "stdout ✗"));
     if (cmd.stderr_correct === false) checks.push(h("span", { class: "chip fail" }, "stderr ✗"));
-    const canShow = cmd.fdbk_settings.show_actual_stdout || cmd.fdbk_settings.show_actual_stderr;
+    const canShow = canSee(cmd, "stdout") || canSee(cmd, "stderr");
+    outputCmd[key] = { pk: sub.pk, cmdPk: cmd.pk };
     return h("div", { class: "cmd" },
       h("div", { class: "row" },
         showName ? h("span", { class: "name" }, cmd.ag_test_command_name) : h("span", { class: "spacer" }),
         checks,
-        canShow ? outputToggle(key, () => send({ type: "output", pk: sub.pk, cmdPk: cmd.pk, key }))
+        canShow ? outputToggle(key, () => send({ type: "output", pk: sub.pk, cmdPk: cmd.pk, key }),
+                               hasDiff(cmd) ? "Output & diff" : "Output")
                 : h("span", { class: "muted small" }, "output hidden")),
       cmd.student_on_fail_description && cmd.total_points < cmd.total_points_possible
         ? h("p", { class: "desc" }, cmd.student_on_fail_description) : null,
@@ -194,11 +204,11 @@
 
   function outputBox(key) {
     const box = h("div", { class: "output", id: key, hidden: !openKeys.has(key) });
-    if (outputs[key]) fillOutputInto(box, outputs[key].stdout, outputs[key].stderr);
+    if (outputs[key]) fillOutputInto(box, outputs[key].stdout, outputs[key].stderr, outputs[key].diffs);
     return box;
   }
 
-  function outputToggle(key, load) {
+  function outputToggle(key, load, label = "Output") {
     return h("button", { class: "link", onclick: (e) => {
       e.preventDefault();
       const box = document.getElementById(key);
@@ -206,7 +216,7 @@
       if (openKeys.has(key)) { openKeys.delete(key); box.hidden = true; return; }
       openKeys.add(key); box.hidden = false;
       if (!box.dataset.loaded) { box.textContent = "Loading output…"; load(); }
-    } }, "Output");
+    } }, label);
   }
 
   function mutationView(m) {
@@ -226,29 +236,155 @@
         m.timed_out_tests && m.timed_out_tests.length ? h("p", { class: "small fail-text" }, "Timed out: ", m.timed_out_tests.join(", ")) : null));
   }
 
-  function fillOutput(key, stdout, stderr) {
-    outputs[key] = { stdout, stderr };
+  function fillOutput(key, stdout, stderr, diffs) {
+    outputs[key] = { stdout, stderr, diffs };
     const box = document.getElementById(key);
-    if (box) fillOutputInto(box, stdout, stderr);
+    if (box) fillOutputInto(box, stdout, stderr, diffs);
   }
 
-  function fillOutputInto(box, stdout, stderr) {
+  function refillOutput(key) {
+    const box = document.getElementById(key), o = outputs[key];
+    if (box && o) fillOutputInto(box, o.stdout, o.stderr, o.diffs);
+  }
+
+  function fillOutputInto(box, stdout, stderr, diffs) {
     box.dataset.loaded = "1";
+    const key = box.id;
     const pane = (label, segs) => {
-      if (!segs.length) return null;
-      const pre = h("pre", {});
-      for (const s of segs) {
-        if (!s.link) { pre.append(document.createTextNode(s.t)); continue; }
-        const open = (e) => { e.preventDefault(); send({ type: "open", link: s.link }); };
-        pre.append(h("a", { href: "#", title: s.title, onclick: open }, s.t));
-        if (s.hint) pre.append(h("a", { href: "#", class: "hint", title: s.title, onclick: open }, ` → ${s.hint}`));
-      }
-      return h("div", { class: "stream" }, h("div", { class: "label" }, label), pre);
+      const diff = diffs && diffs[label];
+      if (!segs.length && !diff) return null;
+      // A test graded against expected output: show the diff (default when they differ) or the raw output.
+      const vk = `${key}:${label}`;
+      const mode = diff ? (streamView[vk] || (diff.items.length ? "diff" : "output")) : "output";
+      const tabs = diff && h("span", { class: "tabs" },
+        ["diff", "output"].map((m) => h("button", { class: "tab" + (mode === m ? " on" : ""),
+          onclick: () => { streamView[vk] = m; refillOutput(key); } }, m === "diff" ? "Diff" : "Output")));
+      const body = mode === "diff" ? diffView(key, label, diff) : outputPre(segs);
+      return h("div", { class: "stream" }, h("div", { class: "label" }, label, tabs), body);
     };
     const a = pane("stdout", stdout), b = pane("stderr", stderr);
     box.replaceChildren(...[a, b].filter(Boolean));
     if (!a && !b) box.textContent = "(no output)";
   }
+
+  function outputPre(segs) {
+    const pre = h("pre", {});
+    if (!segs.length) pre.append(h("span", { class: "muted" }, "(empty)"));
+    for (const s of segs) {
+      if (!s.link) { pre.append(document.createTextNode(s.t)); continue; }
+      const open = (e) => { e.preventDefault(); send({ type: "open", link: s.link }); };
+      pre.append(h("a", { href: "#", title: s.title, onclick: open }, s.t));
+      if (s.hint) pre.append(h("a", { href: "#", class: "hint", title: s.title, onclick: open }, ` → ${s.hint}`));
+    }
+    return pre;
+  }
+
+  // ---- expected-vs-actual diff ---------------------------------------------
+  // `diff` is a DiffView from src/diff.ts: rows aligned side by side, unchanged runs collapsed.
+
+  function diffView(key, stream, diff) {
+    const c = outputCmd[key];
+    const bar = h("div", { class: "diffbar" },
+      diff.items.length
+        ? h("span", { class: "legend" },
+            h("span", { class: "del-text" }, `− expected (${diff.removed})`), " ",
+            h("span", { class: "add-text" }, `+ yours (${diff.added})`))
+        : h("span", { class: "pass-text" }, "✓ Matches the expected output"),
+      h("span", { class: "spacer" }),
+      h("label", { class: "small", title: "Show spaces (·), tabs (→) and line ends (↵)" },
+        h("input", { type: "checkbox", checked: prefs.showWs, onchange: (e) => {
+          prefs.showWs = e.target.checked;
+          vscode.setState(Object.assign({}, vscode.getState(), { prefs }));
+          Object.keys(outputs).forEach(refillOutput);
+        } }), " Show whitespace"),
+      c && h("button", { class: "link", title: "Open the expected output next to your real output in VS Code's diff editor. The diff in this panel is autograder.io's own, which is what's graded: VS Code ignores leading/trailing whitespace by default, so a stray space may only show up here.",
+        onclick: () => send({ type: "openDiff", pk: c.pk, cmdPk: c.cmdPk, stream }) }, "Open in diff editor"));
+    if (!diff.items.length) return h("div", { class: "diff" }, bar);
+    const split = wide.matches;
+    // Fixed layout takes column widths from the first row, so pin the gutters with a colgroup.
+    const table = h("table", { class: "difftable " + (split ? "split" : "unified") },
+      h("colgroup", {}, split
+        ? [h("col", { class: "gutter" }), h("col", {}), h("col", { class: "gutter" }), h("col", {})]
+        : [h("col", { class: "gutter" }), h("col", { class: "gutter" }), h("col", {})]));
+    if (split) table.append(h("tr", {}, h("th", { colspan: 2 }, "Expected"), h("th", { colspan: 2 }, "Yours")));
+    appendItems(table, diff.items, split, `${key}:${stream}`);
+    return h("div", { class: "diff" }, bar,
+      h("div", { class: "diffscroll" }, table),
+      diff.truncated && h("div", { class: "muted small" }, "Diff truncated. Open it in the diff editor to see everything."));
+  }
+
+  function appendItems(table, items, split, id) {
+    let pending = [];   // a run of changed rows; unified view lists all removals, then all additions
+    const flush = () => {
+      if (!pending.length) return;
+      if (split) pending.forEach((r) => table.append(splitRow(r)));
+      else {
+        pending.forEach((r) => r.exp && table.append(uniRow("-", r.exp.n, "", r.exp)));
+        pending.forEach((r) => r.act && table.append(uniRow("+", "", r.act.n, r.act)));
+      }
+      pending = [];
+    };
+    for (const it of items) {
+      if (it.skip) {
+        flush();
+        const skipId = `${id}:${it.skip[0].exp.n}`;
+        if (expanded.has(skipId)) { appendItems(table, it.skip, split, id); continue; }
+        const tr = h("tr", { class: "skip" }, h("td", { colspan: split ? 4 : 3 },
+          h("button", { class: "link", onclick: () => {
+            expanded.add(skipId);
+            const frag = document.createDocumentFragment();
+            appendItems(frag, it.skip, split, id);
+            tr.replaceWith(frag);
+          } }, `⋯ ${it.skip.length} unchanged line${it.skip.length === 1 ? "" : "s"}`)));
+        table.append(tr);
+      } else if (it.same) {
+        flush();
+        table.append(split ? splitRow(it) : uniRow(" ", it.exp.n, it.act.n, it.exp));
+      } else pending.push(it);
+    }
+    flush();
+  }
+
+  function splitRow(r) {
+    const cell = (side, kind, extra) => side
+      ? [h("td", { class: "n " + kind }, String(side.n)), h("td", { class: `t ${kind} ${extra}` }, lineText(side, kind))]
+      : [h("td", { class: "n empty" }), h("td", { class: `t empty ${extra}` })];
+    return h("tr", {}, cell(r.exp, r.same ? "same" : "del", "mid"), cell(r.act, r.same ? "same" : "add", ""));
+  }
+
+  function uniRow(sign, nExp, nAct, side) {
+    const kind = sign === "-" ? "del" : sign === "+" ? "add" : "same";
+    return h("tr", {},
+      h("td", { class: "n " + kind }, String(nExp)), h("td", { class: "n " + kind }, String(nAct)),
+      h("td", { class: "t " + kind }, h("span", { class: "sign" }, sign === " " ? " " : sign === "-" ? "−" : "+"), lineText(side, kind)));
+  }
+
+  /** A line's text with the differing span highlighted and (optionally) whitespace made visible. */
+  function lineText(side, kind) {
+    const frag = document.createDocumentFragment();
+    const put = (str, hl) => {
+      if (!str) return;
+      const target = hl ? h("span", { class: "hl" }) : frag;
+      // A carriage return is invisible but always meaningful here (Windows line endings), so always mark it.
+      const ws = prefs.showWs ? /([ \t\r]+)/ : /(\r+)/;
+      str.split(ws).forEach((part, i) => {
+        if (!part) return;
+        if (i % 2) target.append(h("span", { class: "ws" }, part.replace(/ /g, "·").replace(/\t/g, "→\t").replace(/\r/g, "␍")));
+        else target.append(document.createTextNode(part));
+      });
+      if (hl) frag.append(target);
+    };
+    const t = side.text;
+    if (side.hl && kind !== "same") {
+      const [a, b] = side.hl;
+      put(t.slice(0, a)); put(t.slice(a, b), true); put(t.slice(b));
+    } else put(t);
+    if (!side.eol) frag.append(h("span", { class: "ws noeol", title: "This is the last line and it has no newline at the end" }, " ⌀ no newline at end"));
+    else if (prefs.showWs) frag.append(h("span", { class: "ws" }, "↵"));
+    return frag;
+  }
+
+  wide.addEventListener("change", () => Object.keys(outputs).forEach(refillOutput));
 
   // ---- messages -----------------------------------------------------------
   window.addEventListener("message", (e) => {
@@ -282,7 +418,7 @@
         if (state) { const nav = document.querySelector("nav"); if (nav) nav.replaceWith(sidebar()); }
         break;
       case "output":
-        fillOutput(m.key, m.stdout, m.stderr);
+        fillOutput(m.key, m.stdout, m.stderr, m.diffs);
         break;
     }
   });

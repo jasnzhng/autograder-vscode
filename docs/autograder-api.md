@@ -25,6 +25,7 @@ Visiting `https://autograder.io/web/__apitoken__` while signed in downloads the 
 | `GET /api/submissions/<pk>/` | Polling a submission's status. |
 | `GET /api/submissions/<pk>/results/?feedback_category=…` | Suites → cases → commands with points and feedback settings; mutation-testing suites. |
 | `GET /api/submissions/<pk>/ag_test_cmd_results/<pk>/{stdout,stderr}/?feedback_category=…` | A test command's output (plain text). |
+| `GET /api/submissions/<pk>/ag_test_cmd_results/<pk>/{stdout,stderr}_diff/?feedback_category=…` | Expected-vs-actual diff (JSON list of strings, see below). |
 | `GET /api/submissions/<pk>/ag_test_suite_results/<pk>/{stdout,stderr}/?feedback_category=…` | A suite's setup output. |
 | `GET /api/submissions/<pk>/file/?filename=…` | The files you submitted (source maps, hash matching). |
 
@@ -42,7 +43,16 @@ A student may request only:
 
 Any other request is refused. The extension picks the category from `is_past_daily_limit`.
 
-`fdbk_settings.show_actual_stdout` / `show_actual_stderr` on each command result say whether its output is visible to you. Protected tests usually hide it.
+`fdbk_settings` on each command result says what you may see:
+
+- Your output is visible when `show_actual_stdout` is true **or** `stdout_fdbk_level` is `expected_and_actual` (likewise for stderr). Many projects use only the latter, so checking `show_actual_*` alone would wrongly hide it.
+- A diff exists only when the level is `expected_and_actual` and the test has an expected output. Otherwise the diff endpoint answers `200` with an **empty body** (not JSON).
+
+Protected tests usually hide both.
+
+### Output diffs
+
+The server runs GNU `diff` with the expected output first and yours second, and returns one string per line: a two-character prefix (`"  "` in both, `"- "` expected only, `"+ "` yours only) followed by the line **including its `\n`**. A line without a trailing `\n` is the last line of a file that doesn't end in a newline, which is why `"- sausage"` and `"+ sausage\n"` count as different. `\r` is kept inside lines. A matching output may come back as `[]`. The test's ignore-case/whitespace/blank-line options are applied by the server. See `get_diff` in `autograder/core/utils.py`.
 
 ## Write endpoints (direct submit only)
 
