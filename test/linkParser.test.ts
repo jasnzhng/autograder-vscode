@@ -107,6 +107,18 @@ test("chooses the shallowest match per pattern and reports missing files", () =>
   assert.match(problems[0], /queue\.cpp/);
 });
 
+test("a file matching several patterns counts toward each of them", () => {
+  // EECS 370: "[as,s,lc2k]" is a character class, so simulator.c matches the wildcard too.
+  const expected = [
+    { pattern: "*.[as,s,lc2k]", min_num_matches: 0, max_num_matches: 21 },
+    { pattern: "simulator.c", min_num_matches: 1, max_num_matches: 1 },
+  ];
+  const { files: picked, problems } = chooseUploads(matchExpected(["simulator.c", "test1.as", "t.s", "Makefile"], expected));
+  assert.deepEqual(picked, ["simulator.c", "t.s"]);
+  assert.deepEqual(problems, []);
+  assert.match(chooseUploads(matchExpected(["t.s"], expected)).problems[0], /simulator\.c/);
+});
+
 import { buildArchiveCommand, inferArchiveRoots, isArchiveProject, normalizePastedCommand, pruneNested } from "../src/files.ts";
 
 test("archive projects are detected from expected patterns", () => {

@@ -42,21 +42,26 @@ export function matchExpected(relPaths: string[], expected: Array<{ pattern: str
   });
 }
 
-/** Choose files: per pattern take up to `max` shallowest matches, dropping basename duplicates. */
+/**
+ * Choose files: per pattern take up to `max` shallowest matches, dropping basename duplicates.
+ * Like autograder.io, a file counts toward every pattern it matches, so `simulator.c` already
+ * taken by `*.[as,s,lc2k]` still satisfies a later `simulator.c` pattern.
+ */
 export function chooseUploads(results: PatternMatch[]): { files: string[]; problems: string[] } {
   const files: string[] = [];
   const names = new Set<string>();
   const problems: string[] = [];
   for (const r of results) {
-    const picked: string[] = [];
+    const counted = new Set<string>();
     for (const m of r.matches) {
       const name = m.split("/").pop()!;
-      if (names.has(name) || picked.length >= r.max) continue;
+      if (counted.has(name) || counted.size >= r.max) continue;
+      counted.add(name);
+      if (names.has(name)) continue;
       names.add(name);
-      picked.push(m);
+      files.push(m);
     }
-    if (picked.length < r.min) problems.push(`No file matching "${r.pattern}" (need at least ${r.min}).`);
-    files.push(...picked);
+    if (counted.size < r.min) problems.push(`No file matching "${r.pattern}" (need at least ${r.min}).`);
   }
   return { files, problems };
 }
